@@ -1,0 +1,47 @@
+# ✅ 가상환경 (venv)
+venv/
+
+# ✅ Python 캐시 파일
+__pycache__/
+*.py[cod]
+*.pyo
+
+# ✅ 환경 변수 / 보안 파일
+.env
+*.pem
+*.key
+
+# ✅ Docker 관련 (이미지/볼륨/빌드 캐시)
+*.tar
+*.img
+
+# ✅ VSCode 설정 (개발자 환경 차이 방지)
+.vscode/
+
+# ✅ 시스템 불필요 파일
+.DS_Store
+Thumbs.db
+
+# ✅ 빌드 결과물
+build/
+dist/
+*.egg-info/
+
+# ✅ 테스트 / 캐시 / 분석 툴
+.coverage
+.cache/
+.pytest_cache/
+.mypy_cache/
+.pytype/
+.pyre/
+
+# ✅ SQLite 또는 테스트용 DB
+*.sqlite3
+
+# ✅ Jupyter (혹시라도)
+.ipynb_checkpoints/
+
+# ✅ 백업/임시파일
+*~
+*.bak
+app/firebase_adminsdk.json
