@@ -44,3 +44,4 @@ dist/
 # ✅ 백업/임시파일
 *~
 *.bak
+app/firebase_adminsdk.json

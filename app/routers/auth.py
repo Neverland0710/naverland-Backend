@@ -3,25 +3,29 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from uuid import uuid4
 from jose import jwt
-from google.oauth2 import id_token
-from google.auth.transport import requests as grequests
 import os
 from dotenv import load_dotenv
 
-# DB 관련
+# 🔌 Firebase Admin
+import firebase_admin
+from firebase_admin import credentials, auth as firebase_auth
+
+# 🔌 내부 종속
 from app.dependencies.deps import get_db
 from app.schemas.user_TB import UserCreate
 from app.crud import user_TB as crud_user
 
-# 환경변수 로드
 load_dotenv()
 
-# ✅ 환경변수 또는 직접 지정
 SECRET_KEY = os.getenv("SECRET_KEY", "test-dev-secret-key")
 ALGORITHM = "HS256"
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")  # 여기에 실제 Web Client ID 넣기
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+# 🔐 Firebase 초기화 (한 번만 실행됨)
+if not firebase_admin._apps:
+    cred = credentials.Certificate("app/firebase_adminsdk.json")  # 📍 위치 확인
+    firebase_admin.initialize_app(cred)
+
+router = APIRouter(tags=["auth"])
 
 # 📥 요청 스키마
 class SocialLoginRequest(BaseModel):
@@ -34,36 +38,31 @@ class SocialLoginResponse(BaseModel):
     email: str
     name: str
     provider: str
-    access_token: str  # JWT
+    access_token: str
 
-# ✅ Google ID Token 검증 함수
-def verify_google_token(id_token_str: str) -> dict:
+# ✅ Firebase ID Token 검증 함수
+def verify_firebase_token(id_token_str: str):
     try:
-        print("🔍 받은 ID 토큰 일부:", id_token_str[:30])
-        idinfo = id_token.verify_oauth2_token(
-            id_token_str,
-            grequests.Request(),
-            GOOGLE_CLIENT_ID
-        )
-        print("✅ 검증 성공:", idinfo)
+        decoded_token = firebase_auth.verify_id_token(id_token_str)
+        print("✅ Firebase Token 검증 성공:", decoded_token)
         return {
-            "email": idinfo["email"],
-            "name": idinfo.get("name", "NoName")
+            "email": decoded_token["email"],
+            "name": decoded_token.get("name", "NoName"),
+            "uid": decoded_token["uid"]
         }
     except Exception as e:
-        print("❌ Token verification failed:", e)
-        raise HTTPException(status_code=401, detail="Invalid Google ID token")
+        print("❌ Firebase Token 검증 실패:", e)
+        raise HTTPException(status_code=401, detail=f"Invalid Firebase ID token: {str(e)}")
 
-# 🎯 실제 로그인 엔드포인트
+# ✅ 소셜 로그인 라우터
 @router.post("/social-login", response_model=SocialLoginResponse)
 async def social_login(data: SocialLoginRequest, db: Session = Depends(get_db)):
-    if data.provider != "google":
+    if data.provider.lower() != "google":
         raise HTTPException(status_code=400, detail="Unsupported provider")
 
-    # 1. 토큰 검증
-    user_info = verify_google_token(data.access_token)
+    user_info = verify_firebase_token(data.access_token)
 
-    # 2. 유저 DB에 있는지 확인
+    # DB 조회 or 신규 등록
     user = crud_user.get_user_by_email(db, user_info["email"])
     if not user:
         new_user = UserCreate(
@@ -75,10 +74,8 @@ async def social_login(data: SocialLoginRequest, db: Session = Depends(get_db)):
         )
         user = crud_user.create_user(db, new_user)
 
-    # 3. JWT 발급
     token = jwt.encode({"sub": str(user.USER_ID)}, SECRET_KEY, algorithm=ALGORITHM)
 
-    # 4. 응답 반환
     return SocialLoginResponse(
         id=str(user.USER_ID),
         email=user.EMAIL,

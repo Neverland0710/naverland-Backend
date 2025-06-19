@@ -14,7 +14,12 @@ requests
 # ▶ 비밀번호 해시
 passlib[bcrypt]
 
-# ▶ (선택) FormData 받기
+# ▶ FormData 받기
 python-multipart
 
-google-auth
+# ▶ Firebase 연동
+google-auth>=2.0.0
+firebase-admin==6.3.0
+
+# ▶ protobuf 버전 명시 (중요!)
+protobuf<5.0.0
