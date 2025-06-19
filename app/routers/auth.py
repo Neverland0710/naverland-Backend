@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from uuid import uuid4
 from jose import jwt
 import os
+import json
 from dotenv import load_dotenv
 
 # 🔌 Firebase Admin
@@ -15,6 +16,7 @@ from app.dependencies.deps import get_db
 from app.schemas.user_TB import UserCreate
 from app.crud import user_TB as crud_user
 
+# 🔄 .env 불러오기
 load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "test-dev-secret-key")
@@ -22,8 +24,16 @@ ALGORITHM = "HS256"
 
 # 🔐 Firebase 초기화 (한 번만 실행됨)
 if not firebase_admin._apps:
-    cred = credentials.Certificate("app/firebase_adminsdk.json")  # 📍 위치 확인
-    firebase_admin.initialize_app(cred)
+    firebase_cred_str = os.getenv("FIREBASE_CREDENTIAL")
+    if not firebase_cred_str:
+        raise RuntimeError("❌ 환경변수 FIREBASE_CREDENTIAL이 비어있습니다.")
+    
+    try:
+        firebase_cred_dict = json.loads(firebase_cred_str)
+        cred = credentials.Certificate(firebase_cred_dict)
+        firebase_admin.initialize_app(cred)
+    except Exception as e:
+        raise RuntimeError(f"❌ Firebase 초기화 실패: {e}")
 
 router = APIRouter(tags=["auth"])
 
