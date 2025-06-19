@@ -1,0 +1,20 @@
+fastapi
+uvicorn
+sqlalchemy
+pymysql
+python-dotenv
+email-validator
+
+# ▶ JWT
+python-jose[cryptography]
+
+# ▶ HTTP 요청 (구글 userinfo)
+requests
+
+# ▶ 비밀번호 해시
+passlib[bcrypt]
+
+# ▶ (선택) FormData 받기
+python-multipart
+
+google-auth
