@@ -45,3 +45,5 @@ dist/
 *~
 *.bak
 app/firebase_adminsdk.json
+
+qdrant_storage/
