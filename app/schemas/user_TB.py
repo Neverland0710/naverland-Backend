@@ -19,5 +19,5 @@ class UserResponse(BaseModel):
     RELATION_TO_DECEASED: Optional[str]
 
     class Config:
-        orm_mode = True  # SQLAlchemy 모델과의 호환성을 위해 설정
+        from_attributes = True  # SQLAlchemy 모델과의 호환성을 위해 설정
 

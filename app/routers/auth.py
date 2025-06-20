@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 from uuid import uuid4
 from jose import jwt
 import os
-import json
 from dotenv import load_dotenv
 
 # 🔌 Firebase Admin
@@ -22,19 +21,20 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY", "test-dev-secret-key")
 ALGORITHM = "HS256"
 
-# 🔐 Firebase 초기화 (한 번만 실행됨)
+# ✅ Firebase 초기화 (경로 기반)
+firebase_path = os.getenv("FIREBASE_CREDENTIAL_PATH")
+if not firebase_path:
+    raise RuntimeError("❌ 환경변수 FIREBASE_CREDENTIAL_PATH가 비어 있습니다.")
+
 if not firebase_admin._apps:
-    firebase_cred_str = os.getenv("FIREBASE_CREDENTIAL")
-    if not firebase_cred_str:
-        raise RuntimeError("❌ 환경변수 FIREBASE_CREDENTIAL이 비어있습니다.")
-    
     try:
-        firebase_cred_dict = json.loads(firebase_cred_str)
-        cred = credentials.Certificate(firebase_cred_dict)
+        cred = credentials.Certificate(firebase_path)
         firebase_admin.initialize_app(cred)
+        print("✅ Firebase 초기화 완료")
     except Exception as e:
         raise RuntimeError(f"❌ Firebase 초기화 실패: {e}")
 
+# 🔧 라우터 설정
 router = APIRouter(tags=["auth"])
 
 # 📥 요청 스키마
@@ -50,7 +50,7 @@ class SocialLoginResponse(BaseModel):
     provider: str
     access_token: str
 
-# ✅ Firebase ID Token 검증 함수
+# ✅ Firebase Token 검증
 def verify_firebase_token(id_token_str: str):
     try:
         decoded_token = firebase_auth.verify_id_token(id_token_str)
@@ -64,7 +64,7 @@ def verify_firebase_token(id_token_str: str):
         print("❌ Firebase Token 검증 실패:", e)
         raise HTTPException(status_code=401, detail=f"Invalid Firebase ID token: {str(e)}")
 
-# ✅ 소셜 로그인 라우터
+# ✅ 소셜 로그인 엔드포인트
 @router.post("/social-login", response_model=SocialLoginResponse)
 async def social_login(data: SocialLoginRequest, db: Session = Depends(get_db)):
     if data.provider.lower() != "google":
@@ -72,7 +72,7 @@ async def social_login(data: SocialLoginRequest, db: Session = Depends(get_db)):
 
     user_info = verify_firebase_token(data.access_token)
 
-    # DB 조회 or 신규 등록
+    # 유저가 DB에 없으면 새로 생성
     user = crud_user.get_user_by_email(db, user_info["email"])
     if not user:
         new_user = UserCreate(
@@ -93,4 +93,3 @@ async def social_login(data: SocialLoginRequest, db: Session = Depends(get_db)):
         provider="google",
         access_token=token
     )
-    ###
