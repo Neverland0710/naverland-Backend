@@ -1,14 +1,12 @@
-# app/chatbot/qdrant_service.py
-
 from qdrant_client import QdrantClient
-from qdrant_client.models import PointStruct, VectorParams, Distance
+from qdrant_client.models import PointStruct, VectorParams, Distance, Filter, FieldCondition, MatchValue
 from typing import List, Dict
 import uuid
 
-client = QdrantClient(host="qdrant", port=6333)  # ✅ Docker 내부용 host
+client = QdrantClient(host="localhost", port=6333)
 COLLECTION_NAME = "memory"
 
-def create_collection(vector_size: int = 1536):
+def create_collection(vector_size: int = 768):
     if client.collection_exists(collection_name=COLLECTION_NAME):
         print(f"🧨 기존 컬렉션 '{COLLECTION_NAME}' 삭제")
         client.delete_collection(collection_name=COLLECTION_NAME)
@@ -33,6 +31,22 @@ def search_similar_memories(query_vector: List[float], top_k: int = 3) -> List[D
         query_vector=query_vector,
         limit=top_k
     )
+    return _format_results(results)
+
+def search_similar_memories_with_emotion(query_vector: List[float], emotion: str, top_k: int = 3) -> List[Dict]:
+    results = client.search(
+        collection_name=COLLECTION_NAME,
+        query_vector=query_vector,
+        limit=top_k,
+        query_filter=Filter(
+            must=[
+                FieldCondition(key="emotion", match=MatchValue(value=emotion))
+            ]
+        )
+    )
+    return _format_results(results)
+
+def _format_results(results) -> List[Dict]:
     return [
         {
             "text": hit.payload.get("text", ""),

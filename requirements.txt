@@ -27,3 +27,7 @@ protobuf<5.0.0
 # ▶ RAG 챗봇용
 qdrant-client
 openai
+
+transformers
+torch
+sentence-transformers

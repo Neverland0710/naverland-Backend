@@ -8,6 +8,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# ✅ PYTHONPATH 설정
+ENV PYTHONPATH=/app
+
 # ✅ 애플리케이션 소스 복사
 COPY . .
 

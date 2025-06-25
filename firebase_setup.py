@@ -1,8 +1,10 @@
-from firebase_admin import credentials, initialize_app
 import os
 from dotenv import load_dotenv
+import firebase_admin
+from firebase_admin import credentials, initialize_app
 
-load_dotenv()  # .env에서 경로 읽기
+# ✅ 환경변수 로드
+load_dotenv()
 path = os.getenv("FIREBASE_CREDENTIAL_PATH")
 
 if not path:
@@ -10,6 +12,7 @@ if not path:
 
 cred = credentials.Certificate(path)
 
+# ✅ Firebase 초기화
 if not firebase_admin._apps:
     initialize_app(cred)
     print("✅ Firebase 초기화 완료")

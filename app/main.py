@@ -13,7 +13,8 @@ from app.routers.user_TB import router as user_router
 from app.routers.auth import router as auth_router
 from app.routers.me import router as me_router
 from app.routers.chatbot_router import router as chatbot_router  # ✅ 정확한 방식
-
+from app.routers.deceased_router import router as deceased_router
+from app.routers.auth_key_router import router as auth_key_router
 # ✅ FastAPI 앱 생성
 app = FastAPI()
 
@@ -49,7 +50,8 @@ app.include_router(user_router, prefix="/users")
 app.include_router(auth_router, prefix="/auth")
 app.include_router(me_router, prefix="/me")
 app.include_router(chatbot_router, prefix="/chatbot")  # ✅ 챗봇 API 라우터
-
+app.include_router(deceased_router, prefix="/deceased")
+app.include_router(auth_key_router, prefix="/auth-key")
 # ✅ 기본 루트 엔드포인트
 @app.get("/")
 def root():
