@@ -62,3 +62,4 @@ def root():
 def debug_routes():
     for route in app.routes:
         print(f"✅ 등록된 경로: {route.path} - {route.name}")
+
