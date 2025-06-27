@@ -1,40 +1,50 @@
-import json
 import os
+import json
+from dotenv import load_dotenv
+from .embedding import get_embedding  # ✅ text-embedding-3-small 사용
 from app.chatbot.qdrant_service import create_collection, upload_memory
 
-# ✅ 상대 경로 기준 데이터 위치
-DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "최종_임베딩포함.json")
+load_dotenv()
 
-def load_precomputed_memories():
-    create_collection()
+# ✅ (파일 경로, 유저 ID) 튜플로 구성
+FILES = [
+    (os.path.join(os.path.dirname(__file__), "..", "data", "유학간 딸.json"), "user_mother_daughter"),
+    (os.path.join(os.path.dirname(__file__), "..", "data", "출장.json"), "user_husband_wife"),
+    (os.path.join(os.path.dirname(__file__), "..", "data", "출장아빠_딸.json"), "user_father_daughter"),
+]
 
-    with open(DATA_PATH, "r", encoding="utf-8") as f:
-        data = json.load(f)
+def load_and_upload():
+    create_collection()  # ✅ 컬렉션 초기화 (벡터 차원 1536 고정)
 
-    print(f"📦 총 {len(data)}개의 메시지 로드 중...")
+    total_uploaded = 0
 
-    for item in data:
-        message = item.get("message")
-        speaker = item.get("sender")
-        embedding = item.get("embedding")
-        emotion = item.get("emotion")
+    for file_path, user_id in FILES:
+        with open(file_path, "r", encoding="utf-8") as f:
+            messages = json.load(f)
 
-        if not message or not speaker or not embedding or not emotion:
-            print(f"⚠️ 필수 정보 누락 → 건너뜀: {message}")
-            continue
+        for item in messages:
+            message = item.get("message")
+            sender = item.get("sender")
 
-        upload_memory(
-            text=message,
-            embedding=embedding,
-            metadata={
-                "speaker": speaker.lower(),
-                "emotion": emotion,
-                "page_content": message  # ✅ RAG에서 필요함
-    }
-)
+            if not message or not sender:
+                continue
 
-    print("✅ 미리 계산된 메시지 벡터 저장 완료.")
+            embedding = get_embedding(message)
+            if not embedding:
+                continue
 
-# ✅ -m으로 실행 가능하도록 진입점 설정
+            upload_memory(
+                text=message,
+                embedding=embedding,
+                metadata={
+                    "user_id": user_id,
+                    "speaker": sender.lower(),
+                    "page_content": message,
+                }
+            )
+            total_uploaded += 1
+
+    print(f"✅ Qdrant 업로드 완료: 총 {total_uploaded}개 메시지")
+
 if __name__ == "__main__":
-    load_precomputed_memories()
+    load_and_upload()

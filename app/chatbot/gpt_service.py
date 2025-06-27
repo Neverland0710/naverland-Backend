@@ -1,35 +1,78 @@
-import openai
+# ✅ gpt_service.py (LangChain + Runnable 기반으로 전환)
+
 import os
+from dotenv import load_dotenv
+from langchain_community.chat_models import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnableWithMessageHistory
+from langchain_core.chat_history import InMemoryChatMessageHistory
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+from chatbot.embedding import get_embedding
+from chatbot.qdrant_service import search_similar_memories
 
-# GPT 응답 생성 함수
-def generate_response(user_question: str, user_emotion: str, similar_contexts: list[dict]) -> str:
-    # 유사 문맥 구성
-    context_text = "\n".join([
-        f"{c['speaker']}: {c['text']}" for c in similar_contexts
-    ])
+load_dotenv()
 
-    # 감정 반영 프롬프트 구성
-    prompt = f"""
-너는 사별한 엄마의 말투를 학습한 감성 AI 챗봇이야.
-엄마는 '따뜻하고 배려 깊은 말투'를 사용했고, '가족을 소중히 여기는 가치관'을 중요하게 생각했어.
-지금 사용자는 '{user_emotion}' 감정을 느끼고 있어.
-사용자의 감정을 공감하고 위로하는 말투로 자연스럽게 응답해줘.
+# ✅ GPT 모델 초기화
+llm = ChatOpenAI(
+    model_name="gpt-4o",
+    temperature=0,
+    openai_api_key=os.getenv("OPENAI_API_KEY")
+)
 
-[이전 대화 기록]
-{context_text}
 
-[현재 사용자 질문]
-{user_question}
+# ✅ 프롬프트 템플릿
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "너는 감성 AI 추모 챗봇이야. 고인의 말투를 재현해서 유족에게 따뜻하게 응답해줘."),   
+    ("placeholder", "{chat_history}"),
+    ("user", "{input}")
+])
 
-[엄마의 응답]
-"""
+# ✅ Runnable Chain + 세션별 히스토리 관리
+chat_chain = RunnableWithMessageHistory(
+    prompt | llm,
+    lambda session_id: InMemoryChatMessageHistory(),
+    input_messages_key="input",
+    history_messages_key="chat_history"
+).with_config({"run_name": "chat-runnable"})
 
-    response = openai.ChatCompletion.create(
-        model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-        max_tokens=150
+# ✅ 응답 생성 함수
+
+def generate_response(user_id: str, user_question: str) -> str:
+    try:
+        # 1. 임베딩
+        query_vector = get_embedding(user_question)
+        if not query_vector:
+            return "⚠️ 질문을 처리하는 데 문제가 생겼어요. 다시 시도해 주세요."
+
+        # 2. 유사 문맥 검색
+        similar_contexts = search_similar_memories(query_vector, user_id)
+
+        # 3. 문맥 붙이기
+        context_lines = [
+            f"{c['metadata'].get('speaker', '고인')}: {c['text']}" for c in similar_contexts
+        ]
+        context = "\n".join(context_lines)
+        combined_input = f"{context}\n\n{user_question}" if context else user_question
+
+        # 4. RunnableWithMessageHistory 실행
+        result = chat_chain.invoke(
+            {"input": combined_input},
+            config={"configurable": {"session_id": user_id}}
+        )
+
+        # 5. 응답 반환
+        return result["output"].strip()
+
+    except Exception as e:
+        import traceback
+        print("❌ GPT 호출 실패:", e)
+        traceback.print_exc()
+        return "⚠️ 대답을 준비하지 못했어요. 잠시 후 다시 시도해 주세요."
+
+# ✅ 예시 실행용 (개발 중 테스트)
+if __name__ == "__main__":
+    answer = generate_response(
+        user_id="user_mother_daughter",
+        user_question="강릉 갔던거 기억나?"
     )
-    return response.choices[0].message.content.strip()
+    print("💬 응답:", answer)

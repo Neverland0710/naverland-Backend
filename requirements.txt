@@ -27,7 +27,9 @@ protobuf<5.0.0
 # ▶ RAG 챗봇용
 qdrant-client
 openai
-
+tiktoken
 transformers
 torch
 sentence-transformers
+langchain>=0.1.14
+langchain-community
